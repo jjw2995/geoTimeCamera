@@ -238,9 +238,6 @@ function App() {
 		navigator.mediaDevices
 			.getUserMedia(constraints)
 			.then((r) => {
-				console.log("?");
-
-				// setStream(r);
 				setMediaStreamSrc(r);
 				gotDevices(r);
 			})
@@ -258,12 +255,17 @@ function App() {
 				// setStream(undefined);
 			})
 			.finally(() => {
-				navigator.permissions.query({ name: "camera" }).then((r) => {
-					r.onchange = (e) => {
-						// on permission change, update feed
-						getSetUserMedia();
-					};
-				});
+				// console.log();
+				navigator.mediaDevices.ondevicechange = (ev) => {
+					console.log(ev);
+				};
+
+				// navigator.permissions.query({ name: "camera" }).then((r) => {
+				// 	console.log(r);
+				// 	r.onchange = (e) => {
+				// 		getSetUserMedia();
+				// 	};
+				// });
 			});
 	}
 
@@ -302,7 +304,7 @@ function App() {
 					</div>
 				</div>
 			) : (
-				<div>allow camera permission</div>
+				<div>allow camera permission & refresh</div>
 			)}
 		</div>
 	);
