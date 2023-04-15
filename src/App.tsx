@@ -244,9 +244,16 @@ function App() {
 				setMediaStreamSrc(r);
 				gotDevices(r);
 			})
-			.catch((e) => {
+			.catch((e: DOMException) => {
 				// set vRef, viewRef -> null
 				console.log(e);
+
+				/**(method) Promise<MediaStream>.then<void, never>(
+				 * onfulfilled?: ((value: MediaStream) => void | PromiseLike<void>) | null | undefined,
+				 * onrejected?: ((reason: any) => PromiseLike<never>) | null | undefined): Promise<...>
+				 *
+				 *
+				 */
 				setCamInfo(undefined);
 				// setStream(undefined);
 			})
