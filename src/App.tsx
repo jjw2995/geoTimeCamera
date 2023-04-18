@@ -173,16 +173,11 @@ const CAPTURE_OPTIONS = {
 // }
 const SAVE_DIR = "GeoTimeCam";
 
-function App() {
-	const vRef = useRef<HTMLVideoElement>(null);
-	const viewRef = useRef<HTMLCanvasElement>(null);
-	const galleryRef = useRef<HTMLCanvasElement>(null);
-	const [camInfo, setCamInfo] = useState<{ cams: InputDeviceInfo[]; curCamIndex: number }>();
-
-	const [saveDirHandle, setSaveDirHandle] = useState<FileSystemDirectoryHandle>(null);
+function useFileSystem() {
+	const [dirHandle, setSaveDirHandle] = useState<FileSystemDirectoryHandle>(null);
 
 	async function initDirHandle() {
-		if (!saveDirHandle) {
+		if (!dirHandle) {
 			const rootDir = await window.showDirectoryPicker({ id: 0, mode: "readwrite", startIn: "pictures" });
 
 			const saveDir = await rootDir.getDirectoryHandle(SAVE_DIR, { create: true });
@@ -190,8 +185,31 @@ function App() {
 			setSaveDirHandle(saveDir);
 			return saveDir;
 		}
-		return saveDirHandle;
+		return dirHandle;
 	}
+	async function saveImage(blob: Blob) {
+		const handle = await initDirHandle();
+		const fHandle = await handle.getFileHandle(`${Date.now()}.jpg`, { create: true });
+		const writable = await fHandle.createWritable();
+
+		await writable.write(blob);
+		await writable.close();
+		return fHandle;
+	}
+	// async function getImages(): FileSystemFileHandle[] {
+	// 	// dirHandle.entries()
+	// }
+	async function removeImage(imageHandle: FileSystemFileHandle) {}
+	// async function (){}
+	return { dirHandle, saveImage };
+}
+
+function App() {
+	const vRef = useRef<HTMLVideoElement>(null);
+	const viewRef = useRef<HTMLCanvasElement>(null);
+	const galleryRef = useRef<HTMLCanvasElement>(null);
+	const [camInfo, setCamInfo] = useState<{ cams: InputDeviceInfo[]; curCamIndex: number }>();
+	const { dirHandle, saveImage } = useFileSystem();
 
 	function renderViewFinder() {
 		const ctx = viewRef.current!.getContext("2d")!;
@@ -203,7 +221,7 @@ function App() {
 		}
 		requestAnimationFrame(step);
 	}
-	async function takePhoto(saveDir = saveDirHandle) {
+	async function takePhoto() {
 		galleryRef.current!.getContext("2d")!.drawImage(viewRef.current!, 0, 0);
 		console.log(Date.now());
 
@@ -215,11 +233,7 @@ function App() {
 
 		// console.log(blob);
 
-		const fHandle = await saveDir.getFileHandle(`${Date.now()}.jpg`, { create: true });
-		const writable = await fHandle.createWritable();
-
-		await writable.write(blob);
-		await writable.close();
+		await saveImage(blob);
 	}
 	function setMediaStreamSrc(src: MediaStream) {
 		if (vRef.current && viewRef.current) {
@@ -284,14 +298,14 @@ function App() {
 
 	return (
 		<div>
-			{saveDirHandle ? (
+			{dirHandle ? (
 				<div>note: I have access to directory you chose</div>
 			) : (
 				<div>note: I need directory access</div>
 			)}
 			<button
 				onClick={async () => {
-					for await (const [key, value] of saveDirHandle.entries()) {
+					for await (const [key, value] of dirHandle.entries()) {
 						console.log({ key, value });
 					}
 				}}
@@ -316,7 +330,7 @@ function App() {
 					<canvas ref={viewRef} width={300} height={300}></canvas>
 					<button
 						onClick={async () => {
-							await takePhoto(await initDirHandle());
+							await takePhoto();
 						}}
 					>
 						shoot
