@@ -171,7 +171,7 @@ const CAPTURE_OPTIONS = {
 // 		</div>
 // 	);
 // }
-const SAVE_DIR = "myapp";
+const SAVE_DIR = "GeoTimeCam";
 
 function App() {
 	const vRef = useRef<HTMLVideoElement>(null);
@@ -179,7 +179,19 @@ function App() {
 	const galleryRef = useRef<HTMLCanvasElement>(null);
 	const [camInfo, setCamInfo] = useState<{ cams: InputDeviceInfo[]; curCamIndex: number }>();
 
-	const [dirHandle, setDirHandle] = useState<FileSystemDirectoryHandle>(null);
+	const [saveDirHandle, setSaveDirHandle] = useState<FileSystemDirectoryHandle>(null);
+
+	async function initDirHandle() {
+		if (!saveDirHandle) {
+			const rootDir = await window.showDirectoryPicker({ id: 0, mode: "readwrite", startIn: "pictures" });
+
+			const saveDir = await rootDir.getDirectoryHandle(SAVE_DIR, { create: true });
+			console.log(saveDir);
+			setSaveDirHandle(saveDir);
+			return saveDir;
+		}
+		return saveDirHandle;
+	}
 
 	function renderViewFinder() {
 		const ctx = viewRef.current!.getContext("2d")!;
@@ -191,35 +203,28 @@ function App() {
 		}
 		requestAnimationFrame(step);
 	}
-	async function takePhoto() {
+	async function takePhoto(saveDir = saveDirHandle) {
 		galleryRef.current!.getContext("2d")!.drawImage(viewRef.current!, 0, 0);
 		console.log(Date.now());
 
-		const blob = await new Promise<Blob>((resolve, reject) => {
+		const blob = await new Promise<Blob>((resolve) => {
 			galleryRef.current.toBlob((blob) => {
 				resolve(blob);
-			}, "image/jpeg");
+			}, "image/webp");
 		});
 
-		console.log(blob);
+		// console.log(blob);
 
-		let fHandle = await dirHandle.getFileHandle(`${Date.now()}.jpg`, { create: true });
+		const fHandle = await saveDir.getFileHandle(`${Date.now()}.jpg`, { create: true });
 		const writable = await fHandle.createWritable();
 
 		await writable.write(blob);
 		await writable.close();
-		// .then((fhandle) => {
-		// 	fhandle.createWritable().then((w) => {
-		// 		w.write(blob).then();
-		// 	});
-		// });
 	}
 	function setMediaStreamSrc(src: MediaStream) {
 		if (vRef.current && viewRef.current) {
 			if (src && vRef.current && viewRef.current) {
-				// set vRef,viewRef
 				vRef.current.srcObject = src;
-				// viewRef.current.getContext("2d")!.drawImage(vRef.current, 0, 0);
 				renderViewFinder();
 			} else {
 				//
@@ -270,50 +275,7 @@ function App() {
 
 				setCamInfo(undefined);
 				// setStream(undefined);
-			})
-			.finally(() => {
-				// navigator.permissions.query({ name: "camera" }).then((r) => {
-				// 	console.log(r);
-				// 	r.onchange = (e) => {
-				// 		getSetUserMedia();
-				// 	};
-				// });
 			});
-	}
-	async function testFile() {
-		const root = await navigator.storage.getDirectory();
-		const handle = await root.getDirectoryHandle(SAVE_DIR, { create: true });
-		// handle.
-		console.log(handle);
-
-		for await (const [key, value] of handle.entries()) {
-			console.log({ key, value });
-		}
-
-		// handle.requestPermission({ mode: "readwrite" }).then((r) => {
-		// 	console.log(r);
-		// });
-		handle.getFileHandle("test.txt", { create: true }).then((r) => {
-			console.log(r);
-			r.createWritable({ keepExistingData: false }).then((r) => {
-				// r.write()
-			});
-			// r.
-			r.getFile().then((r) => {
-				console.log(r);
-
-				console.log(r.webkitRelativePath);
-			});
-		});
-
-		// let entries = await a.entries();
-		// console.log(a);
-		// a.getFileHandle("d.txt", { create: true }).then((r) => {
-		// 	r.createWritable({ keepExistingData: false }).then((r) => {
-		// 		// r.write({data:})
-		// 	});
-		// });
-		// console.log(entries);
 	}
 
 	useEffect(() => {
@@ -322,42 +284,16 @@ function App() {
 
 	return (
 		<div>
-			<button
-				onClick={() => {
-					// let a	 = new window.FileSystem();
-					// navigator.permissions.query({ name: "persistent-storage" }).then((r) => {
-					// 	console.log(r);
-					// });
-					window.showDirectoryPicker({ id: 0, mode: "readwrite", startIn: "pictures" }).then(async (r) => {
-						console.log(r);
-						for await (const [key, value] of r.entries()) {
-							console.log({ key, value });
-						}
-						setDirHandle(r);
-						// r.
-					});
-					// try {
-					// 	testFile();
-					// } catch (error) {
-					// 	console.log(error);
-					// }
-				}}
-			>
-				file
-			</button>
+			{saveDirHandle ? (
+				<div>note: I have access to directory you chose</div>
+			) : (
+				<div>note: I need directory access</div>
+			)}
 			<button
 				onClick={async () => {
-					for await (const [key, value] of dirHandle.entries()) {
+					for await (const [key, value] of saveDirHandle.entries()) {
 						console.log({ key, value });
 					}
-					// const a = await dirHandle.getFileHandle("test.txt", { create: true });
-					// (await a.getFile()).text();
-					// a.createWritable({ keepExistingData: false }).then((r) => {
-					// 	r.getWriter().write("asd");
-					// 	console.log(r);
-					// 	r.close();
-					// });
-					// viewRef.current.toD
 				}}
 			>
 				save
@@ -379,8 +315,8 @@ function App() {
 					</button>
 					<canvas ref={viewRef} width={300} height={300}></canvas>
 					<button
-						onClick={() => {
-							takePhoto();
+						onClick={async () => {
+							await takePhoto(await initDirHandle());
 						}}
 					>
 						shoot
