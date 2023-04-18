@@ -171,12 +171,15 @@ const CAPTURE_OPTIONS = {
 // 		</div>
 // 	);
 // }
+const SAVE_DIR = "myapp";
 
 function App() {
 	const vRef = useRef<HTMLVideoElement>(null);
 	const viewRef = useRef<HTMLCanvasElement>(null);
 	const galleryRef = useRef<HTMLCanvasElement>(null);
 	const [camInfo, setCamInfo] = useState<{ cams: InputDeviceInfo[]; curCamIndex: number }>();
+
+	const [dirHandle, setDirHandle] = useState<FileSystemDirectoryHandle>(null);
 
 	function renderViewFinder() {
 		const ctx = viewRef.current!.getContext("2d")!;
@@ -188,8 +191,28 @@ function App() {
 		}
 		requestAnimationFrame(step);
 	}
-	function takePhoto() {
+	async function takePhoto() {
 		galleryRef.current!.getContext("2d")!.drawImage(viewRef.current!, 0, 0);
+		console.log(Date.now());
+
+		const blob = await new Promise<Blob>((resolve, reject) => {
+			galleryRef.current.toBlob((blob) => {
+				resolve(blob);
+			}, "image/jpeg");
+		});
+
+		console.log(blob);
+
+		let fHandle = await dirHandle.getFileHandle(`${Date.now()}.jpg`, { create: true });
+		const writable = await fHandle.createWritable();
+
+		await writable.write(blob);
+		await writable.close();
+		// .then((fhandle) => {
+		// 	fhandle.createWritable().then((w) => {
+		// 		w.write(blob).then();
+		// 	});
+		// });
 	}
 	function setMediaStreamSrc(src: MediaStream) {
 		if (vRef.current && viewRef.current) {
@@ -245,21 +268,10 @@ function App() {
 				// set vRef, viewRef -> null
 				console.log(e);
 
-				/**(method) Promise<MediaStream>.then<void, never>(
-				 * onfulfilled?: ((value: MediaStream) => void | PromiseLike<void>) | null | undefined,
-				 * onrejected?: ((reason: any) => PromiseLike<never>) | null | undefined): Promise<...>
-				 *
-				 *
-				 */
 				setCamInfo(undefined);
 				// setStream(undefined);
 			})
 			.finally(() => {
-				// console.log();
-				navigator.mediaDevices.ondevicechange = (ev) => {
-					console.log(ev);
-				};
-
 				// navigator.permissions.query({ name: "camera" }).then((r) => {
 				// 	console.log(r);
 				// 	r.onchange = (e) => {
@@ -268,6 +280,41 @@ function App() {
 				// });
 			});
 	}
+	async function testFile() {
+		const root = await navigator.storage.getDirectory();
+		const handle = await root.getDirectoryHandle(SAVE_DIR, { create: true });
+		// handle.
+		console.log(handle);
+
+		for await (const [key, value] of handle.entries()) {
+			console.log({ key, value });
+		}
+
+		// handle.requestPermission({ mode: "readwrite" }).then((r) => {
+		// 	console.log(r);
+		// });
+		handle.getFileHandle("test.txt", { create: true }).then((r) => {
+			console.log(r);
+			r.createWritable({ keepExistingData: false }).then((r) => {
+				// r.write()
+			});
+			// r.
+			r.getFile().then((r) => {
+				console.log(r);
+
+				console.log(r.webkitRelativePath);
+			});
+		});
+
+		// let entries = await a.entries();
+		// console.log(a);
+		// a.getFileHandle("d.txt", { create: true }).then((r) => {
+		// 	r.createWritable({ keepExistingData: false }).then((r) => {
+		// 		// r.write({data:})
+		// 	});
+		// });
+		// console.log(entries);
+	}
 
 	useEffect(() => {
 		getSetUserMedia();
@@ -275,6 +322,46 @@ function App() {
 
 	return (
 		<div>
+			<button
+				onClick={() => {
+					// let a	 = new window.FileSystem();
+					// navigator.permissions.query({ name: "persistent-storage" }).then((r) => {
+					// 	console.log(r);
+					// });
+					window.showDirectoryPicker({ id: 0, mode: "readwrite", startIn: "pictures" }).then(async (r) => {
+						console.log(r);
+						for await (const [key, value] of r.entries()) {
+							console.log({ key, value });
+						}
+						setDirHandle(r);
+						// r.
+					});
+					// try {
+					// 	testFile();
+					// } catch (error) {
+					// 	console.log(error);
+					// }
+				}}
+			>
+				file
+			</button>
+			<button
+				onClick={async () => {
+					for await (const [key, value] of dirHandle.entries()) {
+						console.log({ key, value });
+					}
+					// const a = await dirHandle.getFileHandle("test.txt", { create: true });
+					// (await a.getFile()).text();
+					// a.createWritable({ keepExistingData: false }).then((r) => {
+					// 	r.getWriter().write("asd");
+					// 	console.log(r);
+					// 	r.close();
+					// });
+					// viewRef.current.toD
+				}}
+			>
+				save
+			</button>
 			{camInfo ? (
 				<div>
 					<div>{JSON.stringify(camInfo.cams[camInfo.curCamIndex])}</div>
