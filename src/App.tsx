@@ -181,7 +181,6 @@ function useFileSystem() {
 			const rootDir = await window.showDirectoryPicker({ id: 0, mode: "readwrite", startIn: "pictures" });
 
 			const saveDir = await rootDir.getDirectoryHandle(SAVE_DIR, { create: true });
-			console.log(saveDir);
 			setSaveDirHandle(saveDir);
 			return saveDir;
 		}
@@ -204,26 +203,64 @@ function useFileSystem() {
 	return { dirHandle, saveImage };
 }
 
-function App() {
-	const vRef = useRef<HTMLVideoElement>(null);
-	const viewRef = useRef<HTMLCanvasElement>(null);
-	const galleryRef = useRef<HTMLCanvasElement>(null);
-	const [camInfo, setCamInfo] = useState<{ cams: InputDeviceInfo[]; curCamIndex: number }>();
-	const { dirHandle, saveImage } = useFileSystem();
+function useCamera() {
+	/**
+	 * grabCamera
+	 * return feed
+	 */
+	const [camInfos, setCamInfos] = useState<InputDeviceInfo[]>();
+	const [curStream, setCurStream] = useState<MediaStream>();
 
-	function renderViewFinder() {
-		const ctx = viewRef.current!.getContext("2d")!;
-		function step() {
-			if (vRef && vRef.current) {
-				ctx.drawImage(vRef.current!, 0, 0);
-				requestAnimationFrame(step);
-			}
+	function getNextCamera() {
+		if (curStream) {
+			const curCamIndex = camInfos.findIndex(
+				(cam) => cam.deviceId === curStream.getVideoTracks()[0].getSettings().deviceId
+			);
+			const nextCamIndex = (curCamIndex + 1) % camInfos.length;
+			setStream({ video: { deviceId: camInfos[nextCamIndex].deviceId } });
 		}
-		requestAnimationFrame(step);
 	}
+
+	function setCameraInfos(curStream: MediaStream) {
+		navigator.mediaDevices
+			.enumerateDevices()
+			.then((r) => r.filter((v) => v.kind === "videoinput"))
+			.then((r) => {
+				setCamInfos(r);
+			});
+	}
+
+	function setStream(constraints: MediaStreamConstraints = { video: true }) {
+		return navigator.mediaDevices
+			.getUserMedia(constraints)
+			.then((r) => {
+				if (!camInfos) {
+					setCameraInfos(r);
+				}
+				setCurStream(r);
+			})
+			.catch((e: DOMException) => {
+				setCamInfos(undefined);
+			});
+	}
+
+	useEffect(() => {
+		setStream();
+	}, []);
+
+	return { camInfos, curStream, getNextCamera };
+}
+
+function App() {
+	const hiddenVideoRef = useRef<HTMLVideoElement>(null);
+	const viewFinderRef = useRef<HTMLCanvasElement>(null);
+	const galleryRef = useRef<HTMLCanvasElement>(null);
+	const { dirHandle, saveImage } = useFileSystem();
+	const { camInfos, curStream, getNextCamera } = useCamera();
+
 	async function takePhoto() {
-		galleryRef.current!.getContext("2d")!.drawImage(viewRef.current!, 0, 0);
-		console.log(Date.now());
+		galleryRef.current!.getContext("2d")!.drawImage(viewFinderRef.current!, 0, 0);
+		// console.log(Date.now());
 
 		const blob = await new Promise<Blob>((resolve) => {
 			galleryRef.current.toBlob((blob) => {
@@ -231,103 +268,56 @@ function App() {
 			}, "image/webp");
 		});
 
-		// console.log(blob);
-
 		await saveImage(blob);
 	}
-	function setMediaStreamSrc(src: MediaStream) {
-		if (vRef.current && viewRef.current) {
-			if (src && vRef.current && viewRef.current) {
-				vRef.current.srcObject = src;
-				renderViewFinder();
-			} else {
-				//
-			}
+	function setStreamSrc(src: MediaStream) {
+		if (hiddenVideoRef.current && viewFinderRef.current) {
+			hiddenVideoRef.current.srcObject = src;
+			renderViewFinder();
 		}
 	}
 
-	function rotateCamera() {
-		setCamInfo((v) => {
-			if (v && v.cams) {
-				let curCamIndex = (v.curCamIndex + 1) % v.cams.length;
-				console.log(v);
-
-				getSetUserMedia({ video: { deviceId: { exact: v.cams[curCamIndex].deviceId } } });
-				return { ...v, curCamIndex };
-			}
-		});
-	}
-
-	function gotDevices(curStream: MediaStream) {
-		if (!camInfo) {
-			navigator.mediaDevices
-				.enumerateDevices()
-				.then((r) => r.filter((v) => v.kind === "videoinput"))
-				.then((r) => {
-					setCamInfo((v) => {
-						const curDeviceIndex = curStream.getVideoTracks()[0].getSettings().deviceId;
-						return {
-							cams: r,
-							curCamIndex: r.findIndex((v) => v.deviceId === curDeviceIndex),
-						};
-					});
-				});
+	function renderViewFinder() {
+		const ctx = viewFinderRef.current!.getContext("2d")!;
+		function step() {
+			ctx.drawImage(hiddenVideoRef.current!, 0, 0);
+			requestAnimationFrame(step);
 		}
-	}
-
-	//
-	function getSetUserMedia(constraints: MediaStreamConstraints = { video: true }) {
-		navigator.mediaDevices
-			.getUserMedia(constraints)
-			.then((r) => {
-				setMediaStreamSrc(r);
-				gotDevices(r);
-			})
-			.catch((e: DOMException) => {
-				// set vRef, viewRef -> null
-				console.log(e);
-
-				setCamInfo(undefined);
-				// setStream(undefined);
-			});
+		requestAnimationFrame(step);
 	}
 
 	useEffect(() => {
-		getSetUserMedia();
-	}, []);
+		// viewFinderRef.current.
+		if (curStream) {
+			setStreamSrc(curStream);
+		}
+	}, [curStream]);
+
+	//
 
 	return (
 		<div>
-			{dirHandle ? (
+			{/* {dirHandle ? (
 				<div>note: I have access to directory you chose</div>
 			) : (
 				<div>note: I need directory access</div>
-			)}
-			<button
-				onClick={async () => {
-					for await (const [key, value] of dirHandle.entries()) {
-						console.log({ key, value });
-					}
-				}}
-			>
-				save
-			</button>
-			{camInfo ? (
+			)} */}
+			{camInfos && <div>{JSON.stringify(camInfos)}</div>}
+			<br />
+			{curStream && <div>{JSON.stringify(curStream.id)}</div>}
+			<br />
+			{curStream && (
 				<div>
-					<div>{JSON.stringify(camInfo.cams[camInfo.curCamIndex])}</div>
-					{camInfo.cams.map((e, i) => {
-						return <div key={i}>{JSON.stringify(e)}</div>;
-					})}
 					<br />
-					<video autoPlay ref={vRef} width={300} height={300}></video>
+					<video autoPlay ref={hiddenVideoRef} width={300} height={300}></video>
 					<button
 						onClick={() => {
-							rotateCamera();
+							getNextCamera();
 						}}
 					>
 						rotate
 					</button>
-					<canvas ref={viewRef} width={300} height={300}></canvas>
+					<canvas ref={viewFinderRef}></canvas>
 					<button
 						onClick={async () => {
 							await takePhoto();
@@ -340,8 +330,6 @@ function App() {
 						<canvas ref={galleryRef}></canvas>
 					</div>
 				</div>
-			) : (
-				<div>allow camera permission & refresh</div>
 			)}
 		</div>
 	);
