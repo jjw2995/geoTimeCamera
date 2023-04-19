@@ -217,7 +217,8 @@ function useCamera() {
 				(cam) => cam.deviceId === curStream.getVideoTracks()[0].getSettings().deviceId
 			);
 			const nextCamIndex = (curCamIndex + 1) % camInfos.length;
-			setStream({ video: { deviceId: camInfos[nextCamIndex].deviceId } });
+			setStream(camInfos[nextCamIndex].deviceId);
+			// setStream({ video: { deviceId: camInfos[nextCamIndex].deviceId } });
 		}
 	}
 
@@ -230,7 +231,12 @@ function useCamera() {
 			});
 	}
 
-	function setStream(constraints: MediaStreamConstraints = { video: true }) {
+	function setStream(deviceId?: ConstrainDOMString) {
+		let constraints: MediaStreamConstraints = {
+			video: { frameRate: 60, width: { ideal: 4096 }, height: { ideal: 2160 }, deviceId: deviceId },
+		};
+		console.log(constraints);
+
 		return navigator.mediaDevices
 			.getUserMedia(constraints)
 			.then((r) => {
@@ -257,6 +263,7 @@ function App() {
 	const galleryRef = useRef<HTMLCanvasElement>(null);
 	const { dirHandle, saveImage } = useFileSystem();
 	const { camInfos, curStream, getNextCamera } = useCamera();
+	console.log(window.screen);
 
 	async function takePhoto() {
 		galleryRef.current!.getContext("2d")!.drawImage(viewFinderRef.current!, 0, 0);
@@ -273,6 +280,8 @@ function App() {
 	function setStreamSrc(src: MediaStream) {
 		if (hiddenVideoRef.current && viewFinderRef.current) {
 			hiddenVideoRef.current.srcObject = src;
+			console.log(src.getVideoTracks()[0].getSettings());
+
 			renderViewFinder();
 		}
 	}
@@ -290,10 +299,13 @@ function App() {
 		// viewFinderRef.current.
 		if (curStream) {
 			setStreamSrc(curStream);
+			hiddenVideoRef.current.setAttribute;
+			// hiddenVideoRef.current.height()
 		}
 	}, [curStream]);
 
-	//
+	const { height, width } = window.screen;
+	//1440 1920
 
 	return (
 		<div>
@@ -308,8 +320,11 @@ function App() {
 			<br />
 			{curStream && (
 				<div>
+					<div>{JSON.stringify(curStream.getVideoTracks()[0].getSettings().aspectRatio)}</div>
+					<div>{JSON.stringify(curStream.getVideoTracks()[0].getSettings().width)}</div>
+					<div>{JSON.stringify(curStream.getVideoTracks()[0].getSettings().height)}</div>
 					<br />
-					<video autoPlay ref={hiddenVideoRef} width={300} height={300}></video>
+					<video className="bg-slate-300" autoPlay ref={hiddenVideoRef} width={width} height={height}></video>
 					<button
 						onClick={() => {
 							getNextCamera();
