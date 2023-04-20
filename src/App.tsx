@@ -178,7 +178,7 @@ function useFileSystem() {
 
 	async function initDirHandle() {
 		if (!dirHandle) {
-			const rootDir = await window.showDirectoryPicker({ id: 0, mode: "readwrite", startIn: "pictures" });
+			const rootDir = await window.showDirectoryPicker({ id: 0, mode: "readwrite" });
 
 			const saveDir = await rootDir.getDirectoryHandle(SAVE_DIR, { create: true });
 			setSaveDirHandle(saveDir);
@@ -314,17 +314,15 @@ function App() {
 			) : (
 				<div>note: I need directory access</div>
 			)} */}
-			{camInfos && <div>{JSON.stringify(camInfos)}</div>}
-			<br />
-			{curStream && <div>{JSON.stringify(curStream.id)}</div>}
-			<br />
 			{curStream && (
 				<div>
-					<div>{JSON.stringify(curStream.getVideoTracks()[0].getSettings().aspectRatio)}</div>
+					<div className="bg-slate-300">
+						{JSON.stringify(curStream.getVideoTracks()[0].getSettings().aspectRatio)}
+					</div>
 					<div>{JSON.stringify(curStream.getVideoTracks()[0].getSettings().width)}</div>
 					<div>{JSON.stringify(curStream.getVideoTracks()[0].getSettings().height)}</div>
 					<br />
-					<video className="bg-slate-300" autoPlay ref={hiddenVideoRef} width={width} height={height}></video>
+					<video className="bg-slate-300" autoPlay ref={hiddenVideoRef} width={width}></video>
 					<button
 						onClick={() => {
 							getNextCamera();
