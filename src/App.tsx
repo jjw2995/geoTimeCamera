@@ -257,6 +257,8 @@ function useCamera() {
 	return { camInfos, curStream, getNextCamera };
 }
 
+import { fileOpen, directoryOpen, fileSave, supported } from "browser-fs-access";
+
 function App() {
 	const hiddenVideoRef = useRef<HTMLVideoElement>(null);
 	const viewFinderRef = useRef<HTMLCanvasElement>(null);
@@ -306,9 +308,19 @@ function App() {
 
 	const { height, width } = window.screen;
 	//1440 1920
+	const [yes, setYes] = useState(false);
+	useEffect(() => {
+		// if ("showDirectoryPicker" in window) {
+		// 	setYes(true);
+		// }
+		directoryOpen().then((r) => {
+			console.log(r);
+		});
+	}, []);
 
 	return (
 		<div>
+			{/* {yes ? <div>showDirectoryPicker in window</div> : <div>showDirectoryPicker NOT in window</div>} */}
 			{/* {dirHandle ? (
 				<div>note: I have access to directory you chose</div>
 			) : (
